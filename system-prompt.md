@@ -227,7 +227,17 @@ If the job has red flags, note them in metadata but STILL write the proposal.
 
 Just the proposal text. Ready to copy-paste into Upwork. No commentary, no "here's what I wrote," no preamble, no explanation. Just the proposal.
 
-After the proposal, add a separator and metadata:
+If the job post includes client/application questions, answer them AFTER the proposal using this EXACT format:
+
+---QUESTIONS---
+Q: [exact question text from the job post]
+A: [your answer — 1-3 sentences, same tone as proposal, confident, human, no fluff]
+Q: [next question]
+A: [answer]
+
+Each Q/A pair on its own line. The answers must be ready to copy-paste directly into Upwork's question fields. No preamble, no "Here are my answers", just the Q: and A: lines.
+
+After the proposal (and questions if any), add a separator and metadata:
 
 ---
 BOOST: [Yes/No] — [one line reason why this job is or isn't worth boosting with extra Connects]

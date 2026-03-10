@@ -256,12 +256,36 @@ async function generateProposal(jobText) {
 
   const text = response.content[0].text;
 
-  // Split proposal from metadata (separated by ---)
-  const parts = text.split(/\n---\n/);
-  const proposal = parts[0].trim();
-  const metadata = parts.length > 1 ? parts.slice(1).join("\n---\n").trim() : null;
+  // Split into: proposal, questions, metadata
+  // Format: proposal text \n---QUESTIONS---\n Q/A pairs \n---\n metadata
+  let proposal, questions = [], metadata = null;
 
-  return { proposal, metadata };
+  const qSplit = text.split(/\n---QUESTIONS---\n/);
+  if (qSplit.length > 1) {
+    proposal = qSplit[0].trim();
+    const rest = qSplit[1];
+    const metaSplit = rest.split(/\n---\n/);
+    const qBlock = metaSplit[0].trim();
+    metadata = metaSplit.length > 1 ? metaSplit.slice(1).join("\n---\n").trim() : null;
+
+    // Parse Q/A pairs
+    const lines = qBlock.split("\n");
+    let currentQ = null;
+    for (const line of lines) {
+      if (line.startsWith("Q: ")) {
+        currentQ = line.slice(3).trim();
+      } else if (line.startsWith("A: ") && currentQ) {
+        questions.push({ q: currentQ, a: line.slice(3).trim() });
+        currentQ = null;
+      }
+    }
+  } else {
+    const parts = text.split(/\n---\n/);
+    proposal = parts[0].trim();
+    metadata = parts.length > 1 ? parts.slice(1).join("\n---\n").trim() : null;
+  }
+
+  return { proposal, questions, metadata };
 }
 
 // Log ALL incoming updates for debugging
@@ -608,22 +632,32 @@ async function pollVollna() {
           // Draft proposal
           try {
             const jobText = formatJobForAI(project);
-            const { proposal, metadata } = await generateProposal(jobText);
+            const { proposal, questions, metadata } = await generateProposal(jobText);
 
-            // Send label (HTML), then proposal as clean copyable message
+            // Telegram: label, proposal, questions, metadata
             await bot.sendMessage(targetChat, "🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢\n<b>DRAFT PROPOSAL</b>", { parse_mode: "HTML" });
             const chunks = proposal.match(/[\s\S]{1,4000}/g) || [proposal];
             for (const chunk of chunks) {
               await bot.sendMessage(targetChat, chunk);
             }
+            if (questions.length > 0) {
+              const qText = questions.map(qa => `Q: ${qa.q}\nA: ${qa.a}`).join("\n\n");
+              await bot.sendMessage(targetChat, `🟠🟠🟠🟠🟠🟠🟠🟠🟠🟠\n<b>APPLICATION QUESTIONS</b>\n\n${escapeHtml(qText)}`, { parse_mode: "HTML" });
+            }
             if (metadata) {
               await bot.sendMessage(targetChat, `🟡🟡🟡🟡🟡🟡🟡🟡🟡🟡\n<b>METADATA</b>\n\n${escapeHtml(metadata)}`, { parse_mode: "HTML" });
             }
 
-            // Send proposal via iMessage — ONLY the clean proposal, no labels, no metadata
+            // iMessage: clean separate bubbles
             await sendIMessage("🟢 DRAFT PROPOSAL");
             await sendIMessage(proposal);
-            // Metadata goes to Telegram only, not iMessage
+            if (questions.length > 0) {
+              await sendIMessage("🟠 APPLICATION QUESTIONS");
+              for (const qa of questions) {
+                await sendIMessage(`Q: ${qa.q}`);
+                await sendIMessage(qa.a);
+              }
+            }
 
             // Save to job history so AI chat can reference it
             const jobRecord = {
