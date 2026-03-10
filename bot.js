@@ -156,6 +156,7 @@ For full self-reference including architecture, all capabilities, and feature hi
       // Capture session ID for future messages
       if (message.type === "system" && message.subtype === "init") {
         agentSessionId = message.session_id;
+        await sendIMessage("⏳");
       }
       if ("result" in message) {
         result = message.result;
@@ -785,7 +786,6 @@ async function checkIncomingIMessages() {
         console.log(`[iMessage Chat] "${userMsg.slice(0, 80)}..."`);
         isAgentProcessing = true;
         pendingFollowUps = [];
-        await sendIMessage("⏳");
         try {
           let reply = await runImessageChat(userMsg);
 
