@@ -137,6 +137,12 @@ For quick file/URL opens without full computer use, you can still use:
   bash /Users/rainebot/nsclaude/gui-run.sh "open https://example.com"
   bash /Users/rainebot/nsclaude/gui-run.sh "open -a Safari"
 
+VOLLNA JOB HISTORY:
+- Past processed jobs are saved in /Users/rainebot/nsclaude/job-history.json (last 50 jobs with titles, URLs, descriptions, budgets, skills, proposals, and timestamps)
+- To check recent jobs from your Vollna filter, you can query the API directly:
+  curl -s -H "X-API-TOKEN: $VOLLNA_API_KEY" https://api.vollna.com/v1/filters/31584/projects | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);(j.data||[]).forEach(p=>console.log(p.title+' | '+(p.budget?.amount||'?')+' | '+p.url))"
+- When John asks about jobs, missed jobs, or what's been posted — read job-history.json first, then hit the Vollna API for the latest.
+
 For full self-reference including architecture, all capabilities, and feature history with timestamps, read /Users/rainebot/nsclaude/self.md.`,
   };
 
@@ -563,9 +569,10 @@ async function pollVollna() {
           const jobId = project.url || project.title;
           if (processedJobs.has(jobId)) continue;
 
-          // Skip jobs published before bot started
+          // Skip jobs published more than 1 hour before bot started
+          // (allows catching recent jobs after a restart)
           const publishedTs = project.publishedTimestamp || 0;
-          if (publishedTs < botStartTime) {
+          if (publishedTs < botStartTime - 3600) {
             processedJobs.add(jobId); // Mark as seen so we don't check again
             continue;
           }
