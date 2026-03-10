@@ -139,9 +139,11 @@ For quick file/URL opens without full computer use, you can still use:
 
 VOLLNA JOB HISTORY:
 - Past processed jobs are saved in /Users/rainebot/nsclaude/job-history.json (last 50 jobs with titles, URLs, descriptions, budgets, skills, proposals, and timestamps)
-- To check recent jobs from your Vollna filter, you can query the API directly:
-  curl -s -H "X-API-TOKEN: $VOLLNA_API_KEY" https://api.vollna.com/v1/filters/31584/projects | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);(j.data||[]).forEach(p=>console.log(p.title+' | '+(p.budget?.amount||'?')+' | '+p.url))"
-- When John asks about jobs, missed jobs, or what's been posted — read job-history.json first, then hit the Vollna API for the latest.
+- Each entry in job-history.json has a "timestamp" field (ISO 8601, e.g. "2026-03-10T09:30:00.000Z") showing when the bot processed/saw the job. Use this for time-based queries like "past hour" or "today".
+- To check the latest jobs from your Vollna filter (may include jobs not yet in job-history.json):
+  curl -s -H "X-API-TOKEN: $VOLLNA_API_KEY" https://api.vollna.com/v1/filters/31584/projects | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);(j.data||[]).forEach(p=>console.log(JSON.stringify({title:p.title,budget:p.budget,url:p.url,publishedOn:p.publishedOn||p.publishedTimestamp||p.date_created||'unknown'},null,2)))"
+- When John asks about jobs, missed jobs, or what's been posted — ALWAYS read job-history.json first (it has timestamps). Then hit the Vollna API for anything newer. Compare timestamps to answer time-based questions accurately.
+- If a job in job-history.json has a "timestamp" within the user's requested window, include it. Don't say "no timestamps" — job-history.json always has them.
 
 For full self-reference including architecture, all capabilities, and feature history with timestamps, read /Users/rainebot/nsclaude/self.md.`,
   };
