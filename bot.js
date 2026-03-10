@@ -151,12 +151,16 @@ For full self-reference including architecture, all capabilities, and feature hi
     options.resume = agentSessionId;
   }
 
+  let sentThinking = false;
   try {
     for await (const message of agentQuery({ prompt: userMsg, options })) {
       // Capture session ID for future messages
       if (message.type === "system" && message.subtype === "init") {
         agentSessionId = message.session_id;
-        await sendIMessage("⏳");
+        if (!sentThinking) {
+          sentThinking = true;
+          await sendIMessage("⏳");
+        }
       }
       if ("result" in message) {
         result = message.result;
@@ -164,7 +168,31 @@ For full self-reference including architecture, all capabilities, and feature hi
     }
   } catch (err) {
     console.error("[Agent SDK Error]", err.message);
-    result = `Error: ${err.message}`;
+    // If session resume failed, clear it and retry without resume
+    if (agentSessionId && !sentThinking) {
+      console.log("[Agent SDK] Session resume failed, retrying fresh...");
+      agentSessionId = null;
+      delete options.resume;
+      try {
+        for await (const message of agentQuery({ prompt: userMsg, options })) {
+          if (message.type === "system" && message.subtype === "init") {
+            agentSessionId = message.session_id;
+            if (!sentThinking) {
+              sentThinking = true;
+              await sendIMessage("⏳");
+            }
+          }
+          if ("result" in message) {
+            result = message.result;
+          }
+        }
+      } catch (retryErr) {
+        console.error("[Agent SDK Retry Error]", retryErr.message);
+        result = `Error: ${retryErr.message}`;
+      }
+    } else {
+      result = `Error: ${err.message}`;
+    }
   }
 
   return result;
