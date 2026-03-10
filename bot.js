@@ -14,8 +14,6 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const IMESSAGE_TO = process.env.IMESSAGE_TO;
 
 // ── Typing Indicator (placeholder — not implemented yet) ──
-function startTypingIndicator() {}
-function stopTypingIndicator() {}
 
 // ── iMessage AI Chat: Full Claude Agent via Agent SDK ──
 
@@ -787,7 +785,7 @@ async function checkIncomingIMessages() {
         console.log(`[iMessage Chat] "${userMsg.slice(0, 80)}..."`);
         isAgentProcessing = true;
         pendingFollowUps = [];
-        startTypingIndicator();
+        await sendIMessage("⏳");
         try {
           let reply = await runImessageChat(userMsg);
 
@@ -799,11 +797,11 @@ async function checkIncomingIMessages() {
             reply = await runImessageChat(combined);
           }
 
-          stopTypingIndicator();
+
           isAgentProcessing = false;
           await sendIMessage(reply);
         } catch (err) {
-          stopTypingIndicator();
+
           isAgentProcessing = false;
           pendingFollowUps = [];
           await sendIMessage(`Error: ${err.message}`);
