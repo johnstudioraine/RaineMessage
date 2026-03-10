@@ -52,7 +52,12 @@ VOLLNA_API_KEY=your-vollna-api-key
 IMESSAGE_TO=+1XXXXXXXXXX
 ```
 
-**IMESSAGE_TO** is your phone number — the number where you want to receive job notifications.
+**Where to get each key:**
+- **ANTHROPIC_API_KEY** — Sign up at console.anthropic.com, go to API Keys, create one
+- **TELEGRAM_BOT_TOKEN** — Open Telegram, message @BotFather, send `/newbot`, follow the steps. It gives you a token.
+- **TELEGRAM_CHAT_ID** — Start the bot, create a group, add your bot to it, then send `/chatid` in the group. The bot will reply with the chat ID.
+- **VOLLNA_API_KEY** — Sign up at vollna.com, go to your dashboard settings, find the API key section
+- **IMESSAGE_TO** — Your phone number with country code (e.g. +19175551234)
 
 Each key MUST be on its own line. Seriously. If two keys end up on the same line, things will silently break.
 
