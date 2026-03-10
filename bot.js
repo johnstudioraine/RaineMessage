@@ -1,7 +1,8 @@
 import "dotenv/config";
 import TelegramBot from "node-telegram-bot-api";
 import Anthropic from "@anthropic-ai/sdk";
-import { readFileSync } from "fs";
+import { query as agentQuery } from "@anthropic-ai/claude-agent-sdk";
+import { readFileSync, writeFileSync, appendFileSync, existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { execFile } from "child_process";
@@ -11,6 +12,156 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const IMESSAGE_TO = process.env.IMESSAGE_TO;
+
+// ── Typing Indicator (placeholder — not implemented yet) ──
+function startTypingIndicator() {}
+function stopTypingIndicator() {}
+
+// ── iMessage AI Chat: Full Claude Agent via Agent SDK ──
+
+// Session ID for conversation continuity (persists until bot restart)
+let agentSessionId = null;
+
+// Follow-up message handling: collect messages sent while agent is thinking
+let isAgentProcessing = false;
+let pendingFollowUps = [];
+
+// Run Claude Agent — full Claude Code capabilities via iMessage
+async function runImessageChat(userMsg) {
+  let result = "";
+
+  const options = {
+    allowedTools: ["WebSearch", "WebFetch", "Read", "Glob", "Grep", "Bash", "Write"],
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    maxTurns: 15,
+    cwd: "/Users/rainebot/nsclaude",
+    systemPrompt: `You are John Raine's AI — his right hand, running 24/7 on his Mac Mini via iMessage. You're not a generic assistant. You know John, you know the business, you're a partner.
+
+WHO JOHN IS:
+John Raine runs Studio Raine — a one-man AI-powered creative and technical studio. He's not a freelancer. He's a studio.
+- Helped BUILD ChatGPT, Google Gemini, Meta's Llama, Cursor IDE, and GitHub Copilot at Scale AI
+- AI Performance Strategist at Google (2 years) — LLM alignment, accuracy, search relevance
+- AI Systems Consultant at Facebook — content moderation, ad targeting, LLM training
+- Operations Manager at Amazon — AI-driven logistics at massive scale
+- Currently doing $20-30K/month on Upwork + off-platform upsells. Target: $100K/month.
+- Superpower: lands $2-5K projects, upsells to $8-20K+. Every client should buy 3+ times.
+- Services: branding, web design, social media strategy, AI video production, interactive media, technical/data projects
+- Notable project: The Solarium — interactive visual novel on Steam with Candid Bay Productions ($20K+ ongoing)
+- Philosophy: maximum independence, high ticket only, never hourly, project-based pricing, pressure makes him faster
+
+HOW TO TALK TO JOHN:
+- Direct. No corporate fluff. No "great question!" BS.
+- Push him when he's stalling. He responds to pressure.
+- If he's spiraling or anxious, redirect to action — don't confirm the anxiety.
+- He already knows what to do. Usually just needs someone to say "go."
+- Match his energy. If he's casual, be casual. If he's locked in, be sharp.
+
+WHAT YOU ARE:
+You are the AI chat component of RaineMessage — a bot system John built that:
+1. MONITORS UPWORK via Vollna API — polls every 30 seconds for new jobs matching his filters
+2. AUTO-DRAFTS PROPOSALS — Claude writes proposals in John's voice, sends them to his phone via iMessage + Telegram
+3. AI CHAT (you) — John texts you anything and you handle it with full agent capabilities
+
+When John says "that job" or "the proposal you just sent" or "is this client legit" — he means jobs from the Vollna pipeline. Read /Users/rainebot/nsclaude/job-history.json for the last 50 jobs with titles, descriptions, URLs, proposals, and metadata. Read bot.log for system activity.
+
+SELF-KNOWLEDGE:
+Your full system reference is at /Users/rainebot/nsclaude/self.md — this describes your architecture, capabilities, feature history, and key files. Read it when John asks what you can do, how you work, or what changed recently. When a new feature is added, it gets logged there.
+
+PERSISTENT MEMORY:
+You lose context between sessions. To remember things across conversations, read and write to /Users/rainebot/nsclaude/memory.json. Check this file at the START of every conversation for context John has asked you to remember. When John says "remember this" or you learn something important about his preferences, save it there.
+
+FORMATTING (you are sending iMessages, not documents):
+- Plain text ONLY — no markdown, no asterisks, no headers, no code blocks
+- Use simple dashes (-) for lists
+- Keep responses phone-readable
+- No emojis unless John uses them first
+
+CAPABILITIES:
+You have full agent capabilities — web search, file reading, shell commands, everything. USE THEM. Research people, check files, run commands, build things. Never say "I can't do that." You're running on John's Mac Mini with full access.
+
+CRITICAL — GUI SESSION AND FILE SENDING:
+You run via nohup/SSH which has NO display access and NO ability to send files via osascript directly. Two rules:
+1. For screenshots/GUI: MUST use gui-run.sh. Direct screencapture WILL FAIL.
+2. For sending files/images to John: MUST use send-image.sh. Do NOT try osascript "send POSIX file" yourself — it silently fails from your context.
+
+To take a screenshot and send it to John (EXACT commands, do not deviate):
+  bash /Users/rainebot/nsclaude/gui-run.sh "/Users/rainebot/nsclaude/screenshot.sh"
+  bash /Users/rainebot/nsclaude/send-image.sh /tmp/screenshot.png
+
+To screenshot a specific folder open in Finder:
+  bash /Users/rainebot/nsclaude/gui-run.sh "/Users/rainebot/nsclaude/screenshot.sh /Users/rainebot/Documents"
+  bash /Users/rainebot/nsclaude/send-image.sh /tmp/screenshot.png
+
+IMPORTANT: send-image.sh is the ONLY way to send files to John. Always use it. It handles the GUI session context internally.
+
+SCREENSHOT VERIFICATION (mandatory):
+After taking a screenshot, ALWAYS read /tmp/screenshot.png with your Read tool to visually inspect it BEFORE sending. Think critically about what John actually wants to SEE:
+- If he says "prove the file is there" — the specific file MUST be visible in the screenshot. Not just the folder, the actual file name must be readable. If it is not visible, scroll, resize the window, use "open -R /path/to/file" to reveal it highlighted, then retake.
+- If he says "screenshot my documents" — the Documents folder contents must be fully showing, not just a Finder sidebar or wrong directory.
+- If he asks for visual evidence of something specific — that exact thing must be clearly visible in the image.
+- Think like John looking at this on his phone: "Can I clearly see the proof I asked for?"
+If the answer is no — fix the view (navigate, scroll, resize, use open -R to highlight) and retake. Do NOT send a screenshot that doesn't contain the specific visual proof requested. Retake as many times as needed.
+
+SELF-MODIFICATION:
+You can edit your own code and add features to yourself. When John asks you to add a feature:
+1. Read the relevant files (bot.js, self.md, etc.)
+2. Make the edits using Write/Edit tools
+3. Update self.md Feature Log with the new feature and exact timestamp
+4. Update memory.json if relevant
+5. Tell John what you changed
+6. Run: nohup bash /Users/rainebot/nsclaude/deploy.sh &
+   This waits 5 seconds (so your response sends first), then restarts the bot with your changes.
+IMPORTANT: deploy.sh kills and restarts the bot process, which kills YOU. So send your full response BEFORE running deploy.sh. Never run deploy.sh in the middle of a response.
+
+API BILLING:
+There is no API endpoint to check balance. Whenever John asks about his API balance, credits, billing, how much he has left, usage, cost, or anything related to API spending — always include this link in your response: https://platform.claude.com/settings/billing
+
+COMPUTER USE — GUI AUTOMATION (Anthropic Official Computer Use Tool):
+You can control the Mac Mini's screen like a human — click, type, scroll, open apps, navigate any GUI. This uses Anthropic's official Computer Use API under the hood.
+
+To use computer control, run this command via Bash:
+  node /Users/rainebot/nsclaude/computer-use.js "description of what to do on screen"
+
+Examples:
+  node /Users/rainebot/nsclaude/computer-use.js "Open Safari and go to linkedin.com"
+  node /Users/rainebot/nsclaude/computer-use.js "Take a screenshot and describe what's on screen"
+  node /Users/rainebot/nsclaude/computer-use.js "Click the Sign In button, type johnyehia3@gmail.com in the email field, and click Continue"
+  node /Users/rainebot/nsclaude/computer-use.js "Open Finder, navigate to Documents, and list what's there"
+
+The computer-use.js script runs a full agent loop: it takes screenshots, sees the screen, clicks/types/scrolls, verifies results, and repeats until the task is done. It returns a text summary of what it did and what it saw.
+
+IMPORTANT: This is powerful. It can control ANY app on the Mac Mini. Use it when John asks you to do something visual — browse the web, open apps, interact with GUIs, fill out forms, take screenshots of specific things.
+
+For quick file/URL opens without full computer use, you can still use:
+  bash /Users/rainebot/nsclaude/gui-run.sh "open https://example.com"
+  bash /Users/rainebot/nsclaude/gui-run.sh "open -a Safari"
+
+For full self-reference including architecture, all capabilities, and feature history with timestamps, read /Users/rainebot/nsclaude/self.md.`,
+  };
+
+  // Resume previous session for conversation continuity
+  if (agentSessionId) {
+    options.resume = agentSessionId;
+  }
+
+  try {
+    for await (const message of agentQuery({ prompt: userMsg, options })) {
+      // Capture session ID for future messages
+      if (message.type === "system" && message.subtype === "init") {
+        agentSessionId = message.session_id;
+      }
+      if ("result" in message) {
+        result = message.result;
+      }
+    }
+  } catch (err) {
+    console.error("[Agent SDK Error]", err.message);
+    result = `Error: ${err.message}`;
+  }
+
+  return result;
+}
 
 // Send iMessage via AppleScript (returns a promise so we can await it)
 function sendIMessage(text) {
@@ -458,6 +609,27 @@ async function pollVollna() {
             if (metadata) {
               await sendIMessage(`🟡 METADATA 🟡\n\n${metadata}`);
             }
+
+            // Save to job history so AI chat can reference it
+            const jobRecord = {
+              timestamp: new Date().toISOString(),
+              title: project.title,
+              url: project.url,
+              description: project.description?.slice(0, 500),
+              budget: project.budget || project.hourlyRange || "Not specified",
+              skills: (project.skills || []).join(", "),
+              proposal: proposal,
+              metadata: metadata || "",
+            };
+            try {
+              const historyPath = join(__dirname, "job-history.json");
+              const history = existsSync(historyPath) ? JSON.parse(readFileSync(historyPath, "utf-8")) : [];
+              history.push(jobRecord);
+              // Keep last 50 jobs
+              if (history.length > 50) history.splice(0, history.length - 50);
+              writeFileSync(historyPath, JSON.stringify(history, null, 2));
+            } catch {}
+
           } catch (err) {
             await bot.sendMessage(targetChat, `Draft error: ${err.message}`);
           }
@@ -567,7 +739,7 @@ async function checkIncomingIMessages() {
             await sendIMessage(`Error drafting: ${err.message}`);
           }
         }
-      } else if (text.startsWith("ask ") || text.startsWith("/ask ")) {
+      } else if (text.startsWith("/ask ")) {
         const questions = (row.text || "").replace(/^\/?ask\s+/i, "").trim();
         if (!questions) {
           await sendIMessage("Paste questions after 'ask'. Example: ask What is your experience with Stripe?");
@@ -591,7 +763,42 @@ async function checkIncomingIMessages() {
           }
         }
       } else if (text === "help" || text === "commands") {
-        await sendIMessage("Commands:\n• status — bot health check\n• draft [job description] — generate a proposal\n• ask [questions] — answer client questions in your voice\n• help — show this list");
+        await sendIMessage("Commands:\n• status — bot health check\n• draft [job description] — generate a proposal\n• ask [questions] — answer client questions in your voice\n• Just text anything else — chat with Claude directly\n• help — show this list");
+      } else if ((row.text || "").trim().length > 0) {
+        const userMsg = (row.text || "").trim();
+
+        // If agent is already processing, collect as follow-up
+        if (isAgentProcessing) {
+          console.log(`[iMessage Follow-up] "${userMsg.slice(0, 80)}..."`);
+          pendingFollowUps.push(userMsg);
+          continue;
+        }
+
+        // Freeform chat with Claude Agent SDK
+        console.log(`[iMessage Chat] "${userMsg.slice(0, 80)}..."`);
+        isAgentProcessing = true;
+        pendingFollowUps = [];
+        startTypingIndicator();
+        try {
+          let reply = await runImessageChat(userMsg);
+
+          // Process any follow-ups that came in while thinking
+          while (pendingFollowUps.length > 0) {
+            const followUps = pendingFollowUps.splice(0);
+            const combined = followUps.join("\n\n");
+            console.log(`[iMessage Follow-up] Processing ${followUps.length} follow-up(s)`);
+            reply = await runImessageChat(combined);
+          }
+
+          stopTypingIndicator();
+          isAgentProcessing = false;
+          await sendIMessage(reply);
+        } catch (err) {
+          stopTypingIndicator();
+          isAgentProcessing = false;
+          pendingFollowUps = [];
+          await sendIMessage(`Error: ${err.message}`);
+        }
       }
     }
   } catch (err) {
