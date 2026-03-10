@@ -151,47 +151,27 @@ For full self-reference including architecture, all capabilities, and feature hi
     options.resume = agentSessionId;
   }
 
-  let sentThinking = false;
-  try {
-    for await (const message of agentQuery({ prompt: userMsg, options })) {
-      // Capture session ID for future messages
-      if (message.type === "system" && message.subtype === "init") {
-        agentSessionId = message.session_id;
-        if (!sentThinking) {
-          sentThinking = true;
-          await sendIMessage("⏳");
+  // Try up to 2 times (retry once on failure, clearing stale session)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      for await (const message of agentQuery({ prompt: userMsg, options })) {
+        if (message.type === "system" && message.subtype === "init") {
+          agentSessionId = message.session_id;
+        }
+        if ("result" in message) {
+          result = message.result;
         }
       }
-      if ("result" in message) {
-        result = message.result;
+      break; // Success — exit retry loop
+    } catch (err) {
+      console.error(`[Agent SDK Error] attempt=${attempt}`, err.message);
+      if (attempt === 0) {
+        // First failure — clear stale session and retry
+        agentSessionId = null;
+        delete options.resume;
+      } else {
+        result = `Error: ${err.message}`;
       }
-    }
-  } catch (err) {
-    console.error("[Agent SDK Error]", err.message);
-    // If session resume failed, clear it and retry without resume
-    if (agentSessionId && !sentThinking) {
-      console.log("[Agent SDK] Session resume failed, retrying fresh...");
-      agentSessionId = null;
-      delete options.resume;
-      try {
-        for await (const message of agentQuery({ prompt: userMsg, options })) {
-          if (message.type === "system" && message.subtype === "init") {
-            agentSessionId = message.session_id;
-            if (!sentThinking) {
-              sentThinking = true;
-              await sendIMessage("⏳");
-            }
-          }
-          if ("result" in message) {
-            result = message.result;
-          }
-        }
-      } catch (retryErr) {
-        console.error("[Agent SDK Retry Error]", retryErr.message);
-        result = `Error: ${retryErr.message}`;
-      }
-    } else {
-      result = `Error: ${err.message}`;
     }
   }
 
@@ -855,18 +835,9 @@ async function checkIncomingIMessages() {
         console.log(`[iMessage Chat] "${userMsg.slice(0, 80)}..."`);
         isAgentProcessing = true;
         pendingFollowUps = [];
+        await sendIMessage("⏳");
         try {
-          let reply = await runImessageChat(userMsg);
-
-          // Process any follow-ups that came in while thinking
-          while (pendingFollowUps.length > 0) {
-            const followUps = pendingFollowUps.splice(0);
-            const combined = followUps.join("\n\n");
-            console.log(`[iMessage Follow-up] Processing ${followUps.length} follow-up(s)`);
-            reply = await runImessageChat(combined);
-          }
-
-
+          const reply = await runImessageChat(userMsg);
           isAgentProcessing = false;
           await sendIMessage(reply);
         } catch (err) {
