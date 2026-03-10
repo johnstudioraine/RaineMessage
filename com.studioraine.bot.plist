@@ -6,7 +6,7 @@
     <string>com.studioraine.bot</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/node</string>
+        <string>/opt/homebrew/bin/node</string>
         <string>/Users/rainebot/nsclaude/bot.js</string>
     </array>
     <key>WorkingDirectory</key>
