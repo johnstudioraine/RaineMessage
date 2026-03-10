@@ -97,17 +97,32 @@ Replace `/path/to/RaineMessage` with wherever you cloned the repo. The `sleep 15
 
 Once it's running, you don't touch anything. Jobs come to your phone.
 
-**From your phone (iMessage):**
-- **status** — Is the bot alive? How long has it been running? How many jobs has it processed?
-- **draft [paste a job description]** — Get a proposal for any job, not just ones from your filters
-- **ask [paste client questions]** — Get answers to Upwork application questions in your voice
-- **help** — List all commands
+**You'll automatically get:**
+- 🔵 **NEW JOB** — Full job description as soon as it's posted on Upwork
+- 🟢 **DRAFT PROPOSAL** — Ready-to-paste proposal written in your voice
+- 🟡 **METADATA** — Fit score, red flags, and upsell angles
+- **Hourly heartbeat** — A message every hour confirming the bot is alive with stats
 
-**You'll also get:**
-- An automatic heartbeat iMessage every hour confirming the bot is alive
-- 🔵 NEW JOB notifications with the full job description
-- 🟢 DRAFT PROPOSAL with a ready-to-paste proposal
-- 🟡 METADATA with fit score, red flags, and upsell angles
+## Commands
+
+### iMessage (text these to your Mac's iCloud number)
+
+| Command | What it does | Example |
+|---------|-------------|---------|
+| `status` | Bot health check — uptime, jobs processed, last job | Just text "status" |
+| `draft [job]` | Generate a proposal from any job description | "draft Looking for an AI expert to build a chatbot for my e-commerce store. Budget $5K..." |
+| `ask [questions]` | Answer client application questions in your voice | "ask What is your experience with Shopify? How would you approach this project?" |
+| `help` | List all available commands | Just text "help" |
+
+### Telegram (backup — same features, different format)
+
+| Command | What it does | Example |
+|---------|-------------|---------|
+| `/chatid` | Returns the chat ID (for initial .env setup) | Send in your bot's group chat |
+| `/draft [job]` | Generate a proposal from pasted text | "/draft Looking for an AI expert..." |
+| `/ask [questions]` | Answer client questions in your voice | "/ask What's your experience with Stripe?" |
+| Forward a Vollna message | Auto-detects job posts and drafts a proposal | Just forward it to the bot |
+| Paste a long message (100+ chars) in DM | Treats it as a job post and drafts a proposal | Paste the job description directly |
 
 ## Monthly Cost
 
