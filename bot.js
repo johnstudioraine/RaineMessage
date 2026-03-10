@@ -756,7 +756,10 @@ try {
   console.error("[iMessage Watcher] Could not read chat.db:", err.message);
 }
 
+let iMessagePollLock = false;
 async function checkIncomingIMessages() {
+  if (iMessagePollLock) return; // Skip if already processing
+  iMessagePollLock = true;
   try {
     const db = new Database(IMESSAGE_DB, { readonly: true });
     const rows = db.prepare(`
@@ -850,6 +853,8 @@ async function checkIncomingIMessages() {
     }
   } catch (err) {
     // Silently fail — chat.db might be locked
+  } finally {
+    iMessagePollLock = false;
   }
 }
 
