@@ -535,10 +535,16 @@ function formatJobForIMessage(project) {
   const verified = client.paymentMethodVerified ? "Yes" : "No";
   const skills = Array.isArray(project.skills) ? project.skills.join(", ") : project.skills || "None listed";
   const questions = project.clientQuestions
-    ? `\n\nClient Questions:\n${project.clientQuestions}`
+    ? `\nClient Questions:\n${project.clientQuestions}`
     : "";
 
-  return `🔵 NEW JOB 🔵\n\n${project.title}\n\n${project.description}${questions}\n\n${budget} (${budgetType}) | ${skills}\n${country} | Spent: ${spent} | Hires: ${hires} | Rating: ${rating} | Verified: ${verified}\n\n${project.url}`;
+  // Returns array of separate bubbles
+  return [
+    `🔵 NEW JOB: ${project.title}`,
+    `${budget} (${budgetType}) | ${country} | Spent: ${spent} | Hires: ${hires} | Rating: ${rating} | Verified: ${verified}\n\n${skills}`,
+    `${project.description}${questions}`,
+    `${project.url}`,
+  ];
 }
 
 // Escape HTML special chars for Telegram
@@ -593,9 +599,11 @@ async function pollVollna() {
             disable_web_page_preview: true,
           });
 
-          // Send job post via iMessage (plain text version)
-          const iMsgJob = formatJobForIMessage(project);
-          await sendIMessage(iMsgJob);
+          // Send job post via iMessage (separate bubbles)
+          const iMsgBubbles = formatJobForIMessage(project);
+          for (const bubble of iMsgBubbles) {
+            await sendIMessage(bubble);
+          }
 
           // Draft proposal
           try {
@@ -612,11 +620,10 @@ async function pollVollna() {
               await bot.sendMessage(targetChat, `🟡🟡🟡🟡🟡🟡🟡🟡🟡🟡\n<b>METADATA</b>\n\n${escapeHtml(metadata)}`, { parse_mode: "HTML" });
             }
 
-            // Send proposal via iMessage
-            await sendIMessage(`🟢 DRAFT PROPOSAL 🟢\n\n${proposal}`);
-            if (metadata) {
-              await sendIMessage(`🟡 METADATA 🟡\n\n${metadata}`);
-            }
+            // Send proposal via iMessage — ONLY the clean proposal, no labels, no metadata
+            await sendIMessage("🟢 DRAFT PROPOSAL");
+            await sendIMessage(proposal);
+            // Metadata goes to Telegram only, not iMessage
 
             // Save to job history so AI chat can reference it
             const jobRecord = {
@@ -740,9 +747,9 @@ async function checkIncomingIMessages() {
         } else {
           await sendIMessage("Drafting proposal...");
           try {
-            const { proposal, metadata } = await generateProposal(jobText);
-            await sendIMessage(`🟢 DRAFT PROPOSAL 🟢\n\n${proposal}`);
-            if (metadata) await sendIMessage(`🟡 METADATA 🟡\n\n${metadata}`);
+            const { proposal } = await generateProposal(jobText);
+            await sendIMessage("🟢 DRAFT PROPOSAL");
+            await sendIMessage(proposal);
           } catch (err) {
             await sendIMessage(`Error drafting: ${err.message}`);
           }
