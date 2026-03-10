@@ -543,7 +543,7 @@ function formatJobMessage(project) {
 
 <b>${escapeHtml(project.title)}</b>
 
-${escapeHtml(project.description)}${questions}
+${escapeHtml((project.description || "").slice(0, 2000))}${questions}
 
 ━━━━━━━━━━━━━━━━━━
 💰 <b>${escapeHtml(budget)}</b> (${escapeHtml(budgetType)})
@@ -625,11 +625,21 @@ async function pollVollna() {
           const targetChat = CHAT_ID;
           if (!targetChat) continue;
 
-          // Send full job post (HTML formatted)
-          await bot.sendMessage(targetChat, formatJobMessage(project), {
-            parse_mode: "HTML",
-            disable_web_page_preview: true,
-          });
+          // Send full job post (HTML formatted), chunk if too long
+          const jobMsg = formatJobMessage(project);
+          try {
+            await bot.sendMessage(targetChat, jobMsg, {
+              parse_mode: "HTML",
+              disable_web_page_preview: true,
+            });
+          } catch (tgErr) {
+            // If too long, send as plain text chunks
+            const plain = jobMsg.replace(/<[^>]+>/g, "");
+            const tgChunks = plain.match(/[\s\S]{1,4000}/g) || [plain];
+            for (const chunk of tgChunks) {
+              await bot.sendMessage(targetChat, chunk);
+            }
+          }
 
           // Send job post via iMessage (separate bubbles)
           const iMsgBubbles = formatJobForIMessage(project);
