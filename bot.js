@@ -848,7 +848,6 @@ async function checkIncomingIMessages() {
         console.log(`[iMessage Chat] "${userMsg.slice(0, 80)}..."`);
         isAgentProcessing = true;
         pendingFollowUps = [];
-        await sendIMessage("⏳");
         try {
           const reply = await runImessageChat(userMsg);
           isAgentProcessing = false;
