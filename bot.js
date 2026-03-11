@@ -18,7 +18,6 @@ const IMESSAGE_TO = process.env.IMESSAGE_TO;
 // ── iMessage AI Chat: Full Claude Agent via Agent SDK ──
 
 // Session ID for conversation continuity (persists until bot restart)
-let agentSessionId = null;
 
 // Follow-up message handling: collect messages sent while agent is thinking
 let isAgentProcessing = false;
@@ -146,33 +145,15 @@ VOLLNA JOB HISTORY:
 For full self-reference including architecture, all capabilities, and feature history with timestamps, read /Users/rainebot/nsclaude/self.md.`,
   };
 
-  // Resume previous session for conversation continuity
-  if (agentSessionId) {
-    options.resume = agentSessionId;
-  }
-
-  // Try up to 2 times (retry once on failure, clearing stale session)
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      for await (const message of agentQuery({ prompt: userMsg, options })) {
-        if (message.type === "system" && message.subtype === "init") {
-          agentSessionId = message.session_id;
-        }
-        if ("result" in message) {
-          result = message.result;
-        }
-      }
-      break; // Success — exit retry loop
-    } catch (err) {
-      console.error(`[Agent SDK Error] attempt=${attempt}`, err.message);
-      if (attempt === 0) {
-        // First failure — clear stale session and retry
-        agentSessionId = null;
-        delete options.resume;
-      } else {
-        result = `Error: ${err.message}`;
+  try {
+    for await (const message of agentQuery({ prompt: userMsg, options })) {
+      if ("result" in message) {
+        result = message.result;
       }
     }
+  } catch (err) {
+    console.error("[Agent SDK Error]", err.message);
+    result = `Error: ${err.message}`;
   }
 
   return result;
